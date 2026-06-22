@@ -1,0 +1,36 @@
+name: Bioconductor Check
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  bioc-check:
+    runs-on: ubuntu-latest
+    container: bioconductor/bioconductor_docker:devel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          Rscript -e '
+            options(repos = c(CRAN = "https://packagemanager.rstudio.com/all/latest"))
+            install.packages(c("devtools", "remotes", "rcmdcheck", "BiocManager"), quiet = TRUE)
+            if (!requireNamespace("BiocCheck", quietly = TRUE)) BiocManager::install("BiocCheck")
+            remotes::install_deps(dependencies = TRUE)
+          '
+
+      - name: Run tests and check
+        run: |
+          devtools::test()
+          devtools::check(error_on = "warning")
+        shell: Rscript {0}
+
+      - name: Run BiocCheck
+        run: |
+          devtools::build()
+          BiocCheck::BiocCheck(dir(".", "scchromatin.*.tar.gz", full.names = TRUE))
+        shell: Rscript {0}
